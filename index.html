@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Risk AI Engine</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; padding-top: 40px; }
+        .card { box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        #resultadoBox { display: none; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 class="text-center mb-4 text-primary"> AI Credit Risk Predictor</h2>
+    
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card p-4">
+                <form id="loanForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label>Age:</label>
+                            <input type="number" class="form-control" id="age" required value="30">
+                            
+                            <label class="mt-2">Annual Income ($):</label>
+                            <input type="number" class="form-control" id="income" required value="60000">
+                            
+                            <label class="mt-2">Employment Length (Years):</label>
+                            <input type="number" class="form-control" id="emp_length" required value="5">
+                            
+                            <label class="mt-2">Home Ownership:</label>
+                            <select class="form-select" id="home">
+                                <option value="RENT">Rent</option>
+                                <option value="OWN">Own</option>
+                                <option value="MORTGAGE">Mortgage</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                            
+                            <label class="mt-2">Previous Default?</label>
+                            <select class="form-select" id="default">
+                                <option value="N">No</option>
+                                <option value="Y">Yes</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label>Loan Intent:</label>
+                            <select class="form-select" id="intent">
+                                <option value="PERSONAL">Personal</option>
+                                <option value="EDUCATION">Education</option>
+                                <option value="MEDICAL">Medical</option>
+                                <option value="VENTURE">Venture</option>
+                                <option value="HOMEIMPROVEMENT">Home Improvement</option>
+                            </select>
+                            
+                            <label class="mt-2">Loan Grade (Bank Risk):</label>
+                            <select class="form-select" id="grade">
+                                <option value="A">A (Lowest Risk)</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                                <option value="E">E</option>
+                                <option value="F">F</option>
+                                <option value="G">G (Highest Risk)</option>
+                            </select>
+
+                            <label class="mt-2">Loan Amount ($):</label>
+                            <input type="number" class="form-control" id="amount" required value="15000">
+
+                            <label class="mt-2">Interest Rate (%):</label>
+                            <input type="number" step="0.01" class="form-control" id="rate" required value="10.5">
+
+                            <label class="mt-2">Credit History Length (Years):</label>
+                            <input type="number" class="form-control" id="cred_hist" required value="8">
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100 mt-3 fs-5">Predict Credit Risk</button>
+                </form>
+            </div>
+
+            <div id="resultadoBox" class="card p-4 text-center">
+                <h3 id="predictionText">Cargando...</h3>
+                <hr>
+                <h5 class="text-start"> AI Reasoning (SHAP):</h5>
+                <ul id="shapList" class="text-start list-group"></ul>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    // CAMBIA ESTO POR TU URL DE RENDER. ¡Deja el /predict al final!
+    const API_URL = "https://credit-risk-api-cb4p.onrender.com/predict";
+
+    document.getElementById('loanForm').addEventListener('submit', async function(e) {
+        e.preventDefault(); // Evita que la página recargue
+        
+        const income = parseFloat(document.getElementById('income').value);
+        const amount = parseFloat(document.getElementById('amount').value);
+        
+        // Calculamos el % de deuda en JS automáticamente
+        const percent_income = parseFloat((amount / income).toFixed(2));
+
+        // Construimos el JSON idéntico al de tus tests
+        const clientData = {
+            "person_age": parseInt(document.getElementById('age').value),
+            "person_income": income,
+            "person_home_ownership": document.getElementById('home').value,
+            "person_emp_length": parseFloat(document.getElementById('emp_length').value),
+            "loan_intent": document.getElementById('intent').value,
+            "loan_grade": document.getElementById('grade').value,
+            "loan_amnt": amount,
+            "loan_int_rate": parseFloat(document.getElementById('rate').value),
+            "loan_percent_income": percent_income,
+            "cb_person_default_on_file": document.getElementById('default').value,
+            "cb_person_cred_hist_length": parseInt(document.getElementById('cred_hist').value)
+        };
+
+        // Mostramos la caja de carga
+        const resBox = document.getElementById('resultadoBox');
+        resBox.style.display = 'block';
+        document.getElementById('predictionText').innerHTML = '<i>Processing via Cloud Model...</i>';
+        document.getElementById('shapList').innerHTML = '';
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(clientData)
+            });
+
+            const result = await response.json();
+            
+            // Pintamos el resultado
+            const textElement = document.getElementById('predictionText');
+            if (result.loan_status_prediction === 1) {
+                textElement.innerHTML = "❌ LOAN DENIED (High Risk)";
+                textElement.className = "text-danger";
+            } else {
+                textElement.innerHTML = "✅ LOAN APPROVED (Low Risk)";
+                textElement.className = "text-success";
+            }
+
+            // Pintamos las explicaciones de SHAP
+            const shapUl = document.getElementById('shapList');
+            for (const [key, value] of Object.entries(result.explanation_shap_top3)) {
+                let li = document.createElement('li');
+                li.className = "list-group-item";
+                li.innerHTML = `<strong>${key}</strong>: ${value}`;
+                shapUl.appendChild(li);
+            }
+
+        } catch (error) {
+            document.getElementById('predictionText').innerText = "Error connecting to API. Check console.";
+            console.error("Fetch error:", error);
+        }
+    });
+</script>
+</body>
+</html>
