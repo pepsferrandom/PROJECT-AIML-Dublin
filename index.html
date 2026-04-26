@@ -25,7 +25,7 @@
                             <label>Age:</label>
                             <input type="number" class="form-control" id="age" required value="30">
                             
-                            <label class="mt-2">Annual Income ($):</label>
+                            <label class="mt-2">Annual Income (€):</label>
                             <input type="number" class="form-control" id="income" required value="60000">
                             
                             <label class="mt-2">Employment Length (Years):</label>
@@ -67,7 +67,7 @@
                                 <option value="G">G (Highest Risk)</option>
                             </select>
 
-                            <label class="mt-2">Loan Amount ($):</label>
+                            <label class="mt-2">Loan Amount (€):</label>
                             <input type="number" class="form-control" id="amount" required value="15000">
 
                             <label class="mt-2">Interest Rate (%):</label>
@@ -85,7 +85,8 @@
             <div id="resultadoBox" class="card p-4 text-center">
                 <h3 id="predictionText">Cargando...</h3>
                 <hr>
-                <h5 class="text-start"> AI Reasoning (SHAP):</h5>
+                <h5 class="text-start">Top 3 Risk Assessment Factors (SHAP):</h5>          
+                <p class="text-start text-muted mb-2"><small><em>Please note: Generating the algorithmic explainability report may take a few seconds.</em></small></p>
                 <ul id="shapList" class="text-start list-group"></ul>
             </div>
 
@@ -94,7 +95,7 @@
 </div>
 
 <script>
-    // CAMBIA ESTO POR TU URL DE RENDER. ¡Deja el /predict al final!
+    // Put here URL from Render or localhost if you run the API locally. Putting at the end, "/predict"
     const API_URL = "https://credit-risk-api-cb4p.onrender.com/predict";
 
     document.getElementById('loanForm').addEventListener('submit', async function(e) {
@@ -103,10 +104,10 @@
         const income = parseFloat(document.getElementById('income').value);
         const amount = parseFloat(document.getElementById('amount').value);
         
-        // Calculamos el % de deuda en JS automáticamente
+        // Calculate the percentage of income that the loan amount represents, rounded to 2 decimals
         const percent_income = parseFloat((amount / income).toFixed(2));
 
-        // Construimos el JSON idéntico al de tus tests
+        // Build identical data structure as the one used for training the model, to send to the API for prediction
         const clientData = {
             "person_age": parseInt(document.getElementById('age').value),
             "person_income": income,
@@ -121,7 +122,7 @@
             "cb_person_cred_hist_length": parseInt(document.getElementById('cred_hist').value)
         };
 
-        // Mostramos la caja de carga
+        // Show the result box and set initial text while waiting for the API response
         const resBox = document.getElementById('resultadoBox');
         resBox.style.display = 'block';
         document.getElementById('predictionText').innerHTML = '<i>Processing via Cloud Model...</i>';
@@ -136,7 +137,7 @@
 
             const result = await response.json();
             
-            // Pintamos el resultado
+            // Printamos el resultado de la predicción (aprobado o denegado) con un mensaje claro y un icono, además de cambiar el color del texto según el resultado
             const textElement = document.getElementById('predictionText');
             if (result.loan_status_prediction === 1) {
                 textElement.innerHTML = "❌ LOAN DENIED (High Risk)";
@@ -146,7 +147,7 @@
                 textElement.className = "text-success";
             }
 
-            // Pintamos las explicaciones de SHAP
+            // Print the SHAP explainability results in a list format, showing the top 3 features that influenced the prediction with their corresponding SHAP values
             const shapUl = document.getElementById('shapList');
             for (const [key, value] of Object.entries(result.explanation_shap_top3)) {
                 let li = document.createElement('li');
